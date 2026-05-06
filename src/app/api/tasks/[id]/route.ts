@@ -13,16 +13,17 @@ const updateTaskSchema = z.object({
 
 export async function PATCH(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params
         const user = requireAuth(req)
         const body = await req.json()
         const updates = updateTaskSchema.parse(body)
 
         const task = await prisma.task.findFirst({
             where: {
-                id: params.id,
+                id,
                 project: {
                     OR: [
                         { ownerId: user.userId },
@@ -40,7 +41,7 @@ export async function PATCH(
         }
 
         const updated = await prisma.task.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 ...updates,
                 dueDate: updates.dueDate ? new Date(updates.dueDate) : undefined,
@@ -74,14 +75,15 @@ export async function PATCH(
 
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params
         const user = requireAuth(req)
 
         const task = await prisma.task.findFirst({
             where: {
-                id: params.id,
+                id,
                 project: {
                     OR: [
                         { ownerId: user.userId },
@@ -98,7 +100,7 @@ export async function DELETE(
             )
         }
 
-        await prisma.task.delete({ where: { id: params.id } })
+        await prisma.task.delete({ where: { id } })
 
         return NextResponse.json({ success: true, message: "Task deleted" })
     } catch (error) {

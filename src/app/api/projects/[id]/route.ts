@@ -4,14 +4,15 @@ import { requireAuth } from "@/middleware/authMiddleware"
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params
         const user = requireAuth(req)
 
         const project = await prisma.project.findFirst({
             where: {
-                id: params.id,
+                id,
                 OR: [
                     { ownerId: user.userId },
                     { members: { some: { userId: user.userId } } },
@@ -56,13 +57,14 @@ export async function GET(
 
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params
         const user = requireAuth(req)
 
         const project = await prisma.project.findFirst({
-            where: { id: params.id, ownerId: user.userId },
+            where: { id, ownerId: user.userId },
         })
 
         if (!project) {
@@ -72,7 +74,7 @@ export async function DELETE(
             )
         }
 
-        await prisma.project.delete({ where: { id: params.id } })
+        await prisma.project.delete({ where: { id } })
 
         return NextResponse.json({ success: true, message: "Project deleted" })
     } catch (error) {
