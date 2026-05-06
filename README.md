@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Team Task Manager
+
+A full-stack web application for managing projects and tasks with role-based access control (Admin/Member).
+
+## Live Demo
+🔗 [https://team-task-manager-production-f954.up.railway.app](https://team-task-manager-production-f954.up.railway.app)
+
+## Features
+- Authentication (Signup/Login) with JWT
+- Project & team management
+- Task creation, assignment & status tracking
+- Dashboard with task stats (total, in progress, completed, overdue)
+- Role-based access control (Admin/Member)
+
+## Tech Stack
+- **Frontend:** Next.js 14, Tailwind CSS, shadcn/ui
+- **Backend:** Next.js API Routes
+- **Database:** PostgreSQL + Prisma ORM
+- **Auth:** JWT + bcrypt
+- **Deployment:** Railway
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 18+
+- PostgreSQL
 
+### Installation
+
+1. Clone the repository
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+   git clone https://github.com/jaynikam2005/team-task-manager.git
+   cd team-task-manager
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies
+```bash
+   npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Set up environment variables
+```bash
+   cp .env.example .env
+```
+Fill in your `DATABASE_URL` and `JWT_SECRET` in `.env`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Run database migrations
+```bash
+   npx prisma migrate dev
+```
 
-## Learn More
+5. Start the development server
+```bash
+   npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+6. Open [http://localhost:3000](http://localhost:3000)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## API Endpoints
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Auth
+- `POST /api/auth/register` — Register a new user
+- `POST /api/auth/login` — Login
+- `POST /api/auth/logout` — Logout
 
-## Deploy on Vercel
+### Projects
+- `GET /api/projects` — Get all projects
+- `POST /api/projects` — Create a project
+- `GET /api/projects/:id` — Get a project
+- `DELETE /api/projects/:id` — Delete a project
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Tasks
+- `GET /api/tasks` — Get all tasks
+- `POST /api/tasks` — Create a task
+- `PATCH /api/tasks/:id` — Update a task
+- `DELETE /api/tasks/:id` — Delete a task
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+Deployed on Railway with PostgreSQL add-on.
