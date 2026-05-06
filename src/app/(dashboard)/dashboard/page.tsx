@@ -26,6 +26,7 @@ interface Stats {
 export default function DashboardPage() {
     const { user } = useAuthStore()
     const [tasks, setTasks] = useState<Task[]>([])
+    const [overdueTasks, setOverdueTasks] = useState<Task[]>([])
     const [stats, setStats] = useState<Stats>({
         total: 0,
         todo: 0,
@@ -41,22 +42,17 @@ export default function DashboardPage() {
                 const res = await api.get("/tasks")
                 const allTasks: Task[] = res.data.data
 
-                const now = new Date()
                 const computed: Stats = {
                     total: allTasks.length,
                     todo: allTasks.filter((t) => t.status === "TODO").length,
                     inProgress: allTasks.filter((t) => t.status === "IN_PROGRESS").length,
                     done: allTasks.filter((t) => t.status === "DONE").length,
-                    overdue: allTasks.filter(
-                        (t) =>
-                            t.dueDate &&
-                            new Date(t.dueDate) < now &&
-                            t.status !== "DONE"
-                    ).length,
+                    overdue: allTasks.filter((t) => t.status === "OVERDUE").length,
                 }
 
                 setStats(computed)
-                setTasks(allTasks.slice(0, 10))
+                setOverdueTasks(allTasks.filter((t) => t.status === "OVERDUE"))
+                setTasks(allTasks.filter((t) => t.status !== "OVERDUE").slice(0, 8))
             } catch (err) {
                 console.error(err)
             } finally {
@@ -138,6 +134,37 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {overdueTasks.length > 0 && (
+                <div>
+                    <h2 className="text-lg font-medium mb-3 text-red-500">
+                        Overdue tasks ({overdueTasks.length})
+                    </h2>
+                    <div className="space-y-2">
+                        {overdueTasks.map((task) => (
+                            <Card key={task.id} className="border-red-200 bg-red-50 dark:bg-red-950/20">
+                                <CardContent className="py-3 flex items-center justify-between">
+                                    <div>
+                                        <p className="font-medium text-sm">{task.title}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {task.project.name}
+                                            {task.assignee ? ` · ${task.assignee.name}` : ""}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {task.dueDate && (
+                                            <span className="text-xs text-red-500">
+                        Due {new Date(task.dueDate).toLocaleDateString()}
+                      </span>
+                                        )}
+                                        <Badge variant="destructive">OVERDUE</Badge>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div>
                 <h2 className="text-lg font-medium mb-3">Recent tasks</h2>

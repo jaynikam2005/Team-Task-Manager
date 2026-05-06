@@ -63,20 +63,45 @@ export async function DELETE(
         const { id } = await params
         const user = requireAuth(req)
 
-        const project = await prisma.project.findFirst({
-            where: { id, ownerId: user.userId },
+        const task = await prisma.task.findFirst({
+            where: { id },
+            include: {
+                project: {
+                    include: {
+                        members: true,
+                    },
+                },
+            },
         })
 
-        if (!project) {
+        if (!task) {
             return NextResponse.json(
-                { success: false, error: "Project not found or not authorized" },
+                { success: false, error: "Task not found" },
                 { status: 404 }
             )
         }
 
-        await prisma.project.delete({ where: { id } })
+        const member = task.project.members.find(
+            (m) => m.userId === user.userId
+        )
 
-        return NextResponse.json({ success: true, message: "Project deleted" })
+        if (!member) {
+            return NextResponse.json(
+                { success: false, error: "Not a member of this project" },
+                { status: 403 }
+            )
+        }
+
+        if (member.role !== "ADMIN" && task.project.ownerId !== user.userId) {
+            return NextResponse.json(
+                { success: false, error: "Only admins can delete tasks" },
+                { status: 403 }
+            )
+        }
+
+        await prisma.task.delete({ where: { id } })
+
+        return NextResponse.json({ success: true, message: "Task deleted" })
     } catch (error) {
         if (error instanceof Error && error.message === "Unauthorized") {
             return NextResponse.json(

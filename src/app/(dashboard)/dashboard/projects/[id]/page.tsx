@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { useAuthStore } from "@/store/authStore"
 import api from "@/lib/api"
 
 interface Task {
@@ -19,12 +20,17 @@ interface Task {
     assignee: { id: string; name: string } | null
 }
 
+interface Member {
+    role: string
+    user: { id: string; name: string; email: string }
+}
+
 interface Project {
     id: string
     name: string
     description: string | null
     owner: { id: string; name: string }
-    members: { role: string; user: { id: string; name: string } }[]
+    members: Member[]
     tasks: Task[]
 }
 
@@ -32,14 +38,18 @@ const STATUS_OPTIONS = ["TODO", "IN_PROGRESS", "DONE", "OVERDUE"]
 
 export default function ProjectPage() {
     const { id } = useParams()
+    const { user } = useAuthStore()
     const [project, setProject] = useState<Project | null>(null)
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false)
+    const [showInvite, setShowInvite] = useState(false)
     const [creating, setCreating] = useState(false)
+    const [inviting, setInviting] = useState(false)
     const [title, setTitle] = useState("")
     const [description, setDescription] = useState("")
     const [dueDate, setDueDate] = useState("")
     const [assigneeId, setAssigneeId] = useState("")
+    const [inviteEmail, setInviteEmail] = useState("")
 
     useEffect(() => {
         fetchProject()
@@ -54,6 +64,12 @@ export default function ProjectPage() {
         } finally {
             setLoading(false)
         }
+    }
+
+    function isAdmin() {
+        if (!project || !user) return false
+        const member = project.members.find((m) => m.user.id === user.id)
+        return member?.role === "ADMIN"
     }
 
     async function handleCreateTask() {
@@ -81,6 +97,32 @@ export default function ProjectPage() {
         }
     }
 
+    async function handleInviteMember() {
+        if (!inviteEmail.trim()) return
+        try {
+            setInviting(true)
+            await api.post(`/projects/${id}/members`, { email: inviteEmail })
+            toast.success("Member invited!")
+            setInviteEmail("")
+            setShowInvite(false)
+            fetchProject()
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || "Failed to invite member")
+        } finally {
+            setInviting(false)
+        }
+    }
+
+    async function handleRemoveMember(memberId: string) {
+        try {
+            await api.delete(`/projects/${id}/members?userId=${memberId}`)
+            toast.success("Member removed")
+            fetchProject()
+        } catch {
+            toast.error("Failed to remove member")
+        }
+    }
+
     async function handleStatusChange(taskId: string, status: string) {
         try {
             await api.patch(`/tasks/${taskId}`, { status })
@@ -96,8 +138,8 @@ export default function ProjectPage() {
             await api.delete(`/tasks/${taskId}`)
             toast.success("Task deleted")
             fetchProject()
-        } catch {
-            toast.error("Failed to delete task")
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || "Failed to delete task")
         }
     }
 
@@ -114,6 +156,8 @@ export default function ProjectPage() {
     if (loading) return <p className="text-muted-foreground">Loading...</p>
     if (!project) return <p className="text-muted-foreground">Project not found</p>
 
+    const admin = isAdmin()
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -125,10 +169,35 @@ export default function ProjectPage() {
                         </p>
                     )}
                 </div>
-                <Button onClick={() => setShowForm(!showForm)}>
-                    {showForm ? "Cancel" : "Add task"}
-                </Button>
+                <div className="flex gap-2">
+                    {admin && (
+                        <Button variant="outline" onClick={() => setShowInvite(!showInvite)}>
+                            {showInvite ? "Cancel" : "Invite member"}
+                        </Button>
+                    )}
+                    <Button onClick={() => setShowForm(!showForm)}>
+                        {showForm ? "Cancel" : "Add task"}
+                    </Button>
+                </div>
             </div>
+
+            {showInvite && admin && (
+                <Card>
+                    <CardContent className="pt-6 space-y-4">
+                        <div className="space-y-2">
+                            <Label>Invite by email</Label>
+                            <Input
+                                placeholder="teammate@example.com"
+                                value={inviteEmail}
+                                onChange={(e) => setInviteEmail(e.target.value)}
+                            />
+                        </div>
+                        <Button onClick={handleInviteMember} disabled={inviting}>
+                            {inviting ? "Inviting..." : "Send invite"}
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
 
             {showForm && (
                 <Card>
@@ -181,8 +250,31 @@ export default function ProjectPage() {
                 </Card>
             )}
 
-            <div className="space-y-2">
-                <h2 className="text-lg font-medium">
+            <div>
+                <h2 className="text-lg font-medium mb-3">
+                    Members ({project.members.length})
+                </h2>
+                <div className="flex flex-wrap gap-2 mb-6">
+                    {project.members.map((m) => (
+                        <div
+                            key={m.user.id}
+                            className="flex items-center gap-2 border rounded-full px-3 py-1 text-sm"
+                        >
+                            <span>{m.user.name}</span>
+                            <Badge variant="outline">{m.role}</Badge>
+                            {admin && m.user.id !== user?.id && (
+                                <button
+                                    onClick={() => handleRemoveMember(m.user.id)}
+                                    className="text-destructive hover:text-destructive/80 text-xs ml-1"
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+                <h2 className="text-lg font-medium mb-3">
                     Tasks ({project.tasks.length})
                 </h2>
                 {project.tasks.length === 0 ? (
@@ -226,13 +318,15 @@ export default function ProjectPage() {
                                         <Badge variant={getStatusColor(task.status) as any}>
                                             {task.status.replace("_", " ")}
                                         </Badge>
-                                        <Button
-                                            size="sm"
-                                            variant="destructive"
-                                            onClick={() => handleDeleteTask(task.id)}
-                                        >
-                                            Delete
-                                        </Button>
+                                        {admin && (
+                                            <Button
+                                                size="sm"
+                                                variant="destructive"
+                                                onClick={() => handleDeleteTask(task.id)}
+                                            >
+                                                Delete
+                                            </Button>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>

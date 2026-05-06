@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { useAuthStore } from "@/store/authStore"
 import api from "@/lib/api"
 
 interface Project {
@@ -21,6 +22,7 @@ interface Project {
 
 export default function ProjectsPage() {
     const router = useRouter()
+    const { user } = useAuthStore()
     const [projects, setProjects] = useState<Project[]>([])
     const [loading, setLoading] = useState(true)
     const [creating, setCreating] = useState(false)
@@ -68,6 +70,12 @@ export default function ProjectsPage() {
         } catch {
             toast.error("Failed to delete project")
         }
+    }
+
+    function isProjectAdmin(project: Project) {
+        if (!user) return false
+        const member = project.members.find((m) => m.user.id === user.id)
+        return member?.role === "ADMIN"
     }
 
     if (loading) return <p className="text-muted-foreground">Loading...</p>
@@ -127,7 +135,7 @@ export default function ProjectsPage() {
                                 <div className="flex items-start justify-between">
                                     <CardTitle className="text-base">{project.name}</CardTitle>
                                     <Badge variant="outline">
-                                        {project.members.find((m) => m.user.id === project.owner.id)
+                                        {project.members.find((m) => m.user.id === user?.id)
                                             ?.role || "MEMBER"}
                                     </Badge>
                                 </div>
@@ -152,13 +160,15 @@ export default function ProjectsPage() {
                                     >
                                         View
                                     </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="destructive"
-                                        onClick={() => handleDelete(project.id)}
-                                    >
-                                        Delete
-                                    </Button>
+                                    {isProjectAdmin(project) && (
+                                        <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            onClick={() => handleDelete(project.id)}
+                                        >
+                                            Delete
+                                        </Button>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>

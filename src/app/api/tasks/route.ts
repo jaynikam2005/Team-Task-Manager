@@ -17,6 +17,8 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url)
         const projectId = searchParams.get("projectId")
 
+        const now = new Date()
+
         const tasks = await prisma.task.findMany({
             where: {
                 project: {
@@ -33,6 +35,28 @@ export async function GET(req: NextRequest) {
             },
             orderBy: { createdAt: "desc" },
         })
+
+        const overdueIds = tasks
+            .filter(
+                (t) =>
+                    t.dueDate &&
+                    new Date(t.dueDate) < now &&
+                    t.status !== "DONE" &&
+                    t.status !== "OVERDUE"
+            )
+            .map((t) => t.id)
+
+        if (overdueIds.length > 0) {
+            await prisma.task.updateMany({
+                where: { id: { in: overdueIds } },
+                data: { status: "OVERDUE" },
+            })
+
+            overdueIds.forEach((id) => {
+                const task = tasks.find((t) => t.id === id)
+                if (task) task.status = "OVERDUE"
+            })
+        }
 
         return NextResponse.json({ success: true, data: tasks })
     } catch (error) {
